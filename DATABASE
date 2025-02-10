@@ -1,0 +1,52 @@
+USE fraud_detection;
+CREATE TABLE users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone_number VARCHAR(20) UNIQUE NOT NULL,
+    upi_id VARCHAR(50) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE transactions (
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
+    sender_id INT,
+    receiver_id INT,
+    amount DECIMAL(10,2) NOT NULL,
+    transaction_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    transaction_status ENUM('SUCCESS', 'PENDING', 'FAILED') DEFAULT 'SUCCESS',
+    FOREIGN KEY (sender_id) REFERENCES users(user_id),
+    FOREIGN KEY (receiver_id) REFERENCES users(user_id)
+);
+CREATE TABLE fraud_reports (
+    report_id INT PRIMARY KEY AUTO_INCREMENT,
+    transaction_id INT,
+    fraud_score DECIMAL(5,2),
+    reason TEXT,
+    reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id)
+);
+CREATE TABLE blacklisted_accounts (
+    blacklist_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT UNIQUE,
+    upi_id VARCHAR(50) UNIQUE NOT NULL,
+    reason TEXT,
+    blacklisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+INSERT INTO users (name, email, phone_number, upi_id) 
+VALUES 
+('Jaya', 'jaya@example.com', '9876543210', 'jaya@upi'),
+('Alisha', 'alisha@example.com', '9123456789', 'alisha@upi');
+
+INSERT INTO transactions (sender_id, receiver_id, amount) 
+VALUES 
+(1, 2, 500.00), 
+(2, 1, 10000.00); -- Suspicious transaction
+SELECT t.transaction_id, u1.name AS sender, u2.name AS receiver, t.amount, t.transaction_time 
+FROM transactions t
+JOIN users u1 ON t.sender_id = u1.user_id
+JOIN users u2 ON t.receiver_id = u2.user_id
+WHERE t.amount > 5000 OR t.receiver_id NOT IN (
+    SELECT DISTINCT sender_id FROM transactions WHERE sender_id IS NOT NULL
+);
